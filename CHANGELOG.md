@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Packages' implicit resource bundles reach the app
+
+- xtool packed a dependency's `<Package>_<Target>.bundle` only when `swift package describe` listed resources for the target, and `describe` lists declared resources only. A package that ships an asset catalog in `Sources/<Target>` without a `resources:` entry (CodeScanner 2.x) still gets a bundle from SwiftPM, but the app shipped without it and trapped in `Bundle.module` ("unable to find bundle named CodeScanner_CodeScanner") the first time that code ran. `patches/xtool-implicit-resource-bundles.patch` plans the bundle of every source target and packs the ones the build produced. `install_xtool` applies it on the pinned checkout and installs to `xtool-<sha>-p<n>`, so existing installs rebuild.
+
 ## v0.4.3
 
 ### xtool password login uses the provider user-agent

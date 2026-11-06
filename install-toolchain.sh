@@ -112,16 +112,24 @@ fetch_commit() { # repo sha dir
 # Built from source with its Swift runtime libraries next to it ($ORIGIN only).
 XTOOL_REPO=https://github.com/joshuaswarren/xtool
 XTOOL_SHA=c9f436303f9fe4dbeef46dfb9e208f1bb0912fe4
+XTOOL_PATCH_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/patches"
 # The SDK stamp that pin writes (SDKBuilder.currentSDKVersion: epoch, darwin-tools and OpenAppleMacros
 # versions). Change it together with XTOOL_SHA; tests/sdk-state/check.sh compares it with the pinned source.
 XTOOL_SDK_VERSION="epoch=4,darwinTools=1.1.0,oam=1.4.1"
 install_xtool() {
   local src="$HOME/.cache/omarchy-apple-dev/xtool-$XTOOL_SHA"
-  local dest="$HOME/.local/lib/omarchy-apple-dev/xtool-$XTOOL_SHA"
+  # Local fixes on top of the pin; the patch set names the install dir, so adding one rebuilds.
+  local patches=("$XTOOL_PATCH_DIR/xtool-implicit-resource-bundles.patch")
+  local dest="$HOME/.local/lib/omarchy-apple-dev/xtool-$XTOOL_SHA-p${#patches[@]}"
   # The runtime libraries are copied after xtool, so a run that stopped between the two
   # left xtool alone; checking libswiftCore.so too makes the next run finish the install.
   if [ ! -x "$dest/xtool" ] || [ ! -e "$dest/libswiftCore.so" ]; then
     fetch_commit "$XTOOL_REPO" "$XTOOL_SHA" "$src"
+    local p
+    for p in "${patches[@]}"; do
+      # applied already (a cached checkout) or apply it now
+      git -C "$src" apply --reverse --check "$p" 2>/dev/null || git -C "$src" apply "$p"
+    done
     echo "Building xtool $XTOOL_SHA (first run: about 7 minutes)"
     (cd "$src" && swift build -c release --product xtool -Xswiftc -no-toolchain-stdlib-rpath >/dev/null)
     local bin runtime

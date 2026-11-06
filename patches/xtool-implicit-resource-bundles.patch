@@ -1,0 +1,33 @@
+diff --git a/Sources/PackLib/Packer.swift b/Sources/PackLib/Packer.swift
+index feb1535..7bcb3ab 100644
+--- a/Sources/PackLib/Packer.swift
++++ b/Sources/PackLib/Packer.swift
+@@ -170,7 +170,10 @@ public struct Packer: Sendable {
+             group.addTask {
+                 switch command {
+                 case .bundle(let package, let target):
+-                    try await packFile(srcName: "\(package)_\(target).bundle")
++                    let name = "\(package)_\(target).bundle"
++                    // targets without resources have no bundle to pack
++                    guard FileManager.default.fileExists(atPath: binDir.appendingPathComponent(name).path) else { break }
++                    try await packFile(srcName: name)
+                 case .binaryTarget(let name):
+                     let src = URL(fileURLWithPath: "\(name).framework/\(name)", relativeTo: binDir)
+                     let magic = Data("!<arch>\n".utf8)
+diff --git a/Sources/PackLib/Planner.swift b/Sources/PackLib/Planner.swift
+index 3dea47c..4d54534 100644
+--- a/Sources/PackLib/Planner.swift
++++ b/Sources/PackLib/Planner.swift
+@@ -152,7 +152,11 @@ public struct Planner: Sendable {
+             if target.moduleType == "BinaryTarget" {
+                 resources.append(.binaryTarget(name: targetName))
+             }
+-            if target.resources?.isEmpty == false {
++            // `describe` lists only declared resources, but SwiftPM also builds a bundle for
++            // implicit ones (an Assets.xcassets in Sources/<Target>, as CodeScanner ships), and
++            // that code traps in Bundle.module without it. Plan every source target's bundle;
++            // the packer skips the ones the build did not produce.
++            if target.moduleType != "BinaryTarget" {
+                 resources.append(.bundle(package: targetPackage.name, target: targetName))
+             }
+             for targetName in (target.targetDependencies ?? []) {
